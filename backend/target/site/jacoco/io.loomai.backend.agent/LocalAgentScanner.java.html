@@ -1,0 +1,267 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LocalAgentScanner.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">loomai-backend</a> &gt; <a href="index.source.html" class="el_package">io.loomai.backend.agent</a> &gt; <span class="el_source">LocalAgentScanner.java</span></div><h1>LocalAgentScanner.java</h1><pre class="source lang-java linenums">package io.loomai.backend.agent;
+
+import io.loomai.backend.shared.shell.UserShellResolver;
+import io.loomai.backend.shared.time.UtcClock;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+import org.springframework.stereotype.Component;
+
+@Component
+public class LocalAgentScanner {
+
+<span class="nc" id="L26">    private static final List&lt;AgentDefinition&gt; KNOWN_AGENTS = List.of(</span>
+<span class="nc" id="L27">            new AgentDefinition(&quot;Claude Code&quot;, &quot;claude&quot;, &quot;Anthropic&quot;, List.of(&quot;.claude&quot;), List.of(&quot;--version&quot;, &quot;version&quot;)),</span>
+<span class="nc" id="L28">            new AgentDefinition(&quot;Gemini CLI&quot;, &quot;gemini&quot;, &quot;Google&quot;, List.of(&quot;.gemini&quot;), List.of(&quot;--version&quot;, &quot;version&quot;)),</span>
+<span class="nc" id="L29">            new AgentDefinition(&quot;Codex CLI&quot;, &quot;codex&quot;, &quot;OpenAI&quot;, List.of(&quot;.codex&quot;), List.of(&quot;--version&quot;, &quot;version&quot;)),</span>
+<span class="nc" id="L30">            new AgentDefinition(&quot;Copilot CLI&quot;, &quot;copilot&quot;, &quot;GitHub&quot;, List.of(&quot;.copilot&quot;), List.of(&quot;--version&quot;)),</span>
+<span class="nc" id="L31">            new AgentDefinition(&quot;OpenCode&quot;, &quot;opencode&quot;, &quot;Community&quot;, List.of(&quot;.opencode&quot;), List.of(&quot;--version&quot;, &quot;version&quot;)),</span>
+<span class="nc" id="L32">            new AgentDefinition(&quot;Antigravity CLI&quot;, &quot;antigravity&quot;, &quot;Community&quot;, List.of(&quot;.antigravitycli&quot;), List.of(&quot;--version&quot;, &quot;version&quot;)),</span>
+<span class="nc" id="L33">            new AgentDefinition(&quot;Aider&quot;, &quot;aider&quot;, &quot;Community&quot;, List.of(&quot;.aider&quot;), List.of(&quot;--version&quot;, &quot;--help&quot;))</span>
+    );
+
+    private final UtcClock utcClock;
+
+<span class="nc" id="L38">    public LocalAgentScanner(UtcClock utcClock) {</span>
+<span class="nc" id="L39">        this.utcClock = utcClock;</span>
+<span class="nc" id="L40">    }</span>
+
+    public List&lt;Agent&gt; scanInstalledAgents() {
+<span class="nc" id="L43">        Instant now = utcClock.now();</span>
+<span class="nc" id="L44">        List&lt;Agent&gt; agents = new ArrayList&lt;&gt;();</span>
+
+<span class="nc bnc" id="L46" title="All 2 branches missed.">        for (AgentDefinition definition : KNOWN_AGENTS) {</span>
+<span class="nc" id="L47">            Optional&lt;String&gt; directoryPath = findConfigDirectory(definition.configDirectories());</span>
+<span class="nc" id="L48">            Optional&lt;String&gt; executablePath = findExecutable(definition.command());</span>
+
+<span class="nc bnc" id="L50" title="All 4 branches missed.">            if (directoryPath.isEmpty() &amp;&amp; executablePath.isEmpty()) {</span>
+<span class="nc" id="L51">                continue;</span>
+            }
+
+<span class="nc" id="L54">            String detectedPath = directoryPath.orElseGet(() -&gt; executablePath.orElse(&quot;&quot;));</span>
+<span class="nc bnc" id="L55" title="All 2 branches missed.">            String status = executablePath.isPresent() ? &quot;active&quot; : &quot;idle&quot;;</span>
+<span class="nc" id="L56">            String version = executablePath</span>
+<span class="nc" id="L57">                    .map(path -&gt; resolveVersion(definition, path))</span>
+<span class="nc" id="L58">                    .orElse(&quot;detected&quot;);</span>
+<span class="nc" id="L59">            String adapterType = resolveAdapterType(definition.command());</span>
+
+<span class="nc" id="L61">            agents.add(new Agent(</span>
+<span class="nc" id="L62">                    deterministicId(definition.command(), detectedPath),</span>
+<span class="nc" id="L63">                    definition.name(),</span>
+                    adapterType,
+<span class="nc" id="L65">                    Map.of(</span>
+<span class="nc" id="L66">                            &quot;command&quot;, definition.command(),</span>
+                            &quot;binaryPath&quot;, detectedPath,
+                            &quot;detectedVersion&quot;, version,
+<span class="nc" id="L69">                            &quot;model&quot;, defaultModelFor(adapterType)</span>
+                    ),
+                    status,
+                    now
+            ));
+<span class="nc" id="L74">        }</span>
+
+<span class="nc" id="L76">        agents.sort(Comparator.comparing(Agent::name, String.CASE_INSENSITIVE_ORDER));</span>
+<span class="nc" id="L77">        return agents;</span>
+    }
+
+    private Optional&lt;String&gt; findConfigDirectory(List&lt;String&gt; directoryNames) {
+<span class="nc" id="L81">        String home = System.getProperty(&quot;user.home&quot;);</span>
+<span class="nc bnc" id="L82" title="All 4 branches missed.">        if (home == null || home.isBlank()) {</span>
+<span class="nc" id="L83">            return Optional.empty();</span>
+        }
+
+<span class="nc" id="L86">        Path homePath = Path.of(home);</span>
+<span class="nc bnc" id="L87" title="All 2 branches missed.">        for (String directoryName : directoryNames) {</span>
+<span class="nc" id="L88">            Path candidate = homePath.resolve(directoryName);</span>
+<span class="nc bnc" id="L89" title="All 2 branches missed.">            if (Files.isDirectory(candidate)) {</span>
+<span class="nc" id="L90">                return Optional.of(candidate.toAbsolutePath().normalize().toString());</span>
+            }
+<span class="nc" id="L92">        }</span>
+
+<span class="nc" id="L94">        return Optional.empty();</span>
+    }
+
+    private Optional&lt;String&gt; findExecutable(String command) {
+<span class="nc" id="L98">        Optional&lt;String&gt; fromShell = findExecutableViaShell(command);</span>
+<span class="nc bnc" id="L99" title="All 2 branches missed.">        if (fromShell.isPresent()) return fromShell;</span>
+
+<span class="nc" id="L101">        return findExecutableViaPath(command);</span>
+    }
+
+    private Optional&lt;String&gt; findExecutableViaShell(String command) {
+        try {
+<span class="nc" id="L106">            Process process = new ProcessBuilder(UserShellResolver.command(&quot;command -v &quot; + command))</span>
+<span class="nc" id="L107">                    .redirectErrorStream(true)</span>
+<span class="nc" id="L108">                    .start();</span>
+<span class="nc" id="L109">            boolean finished = process.waitFor(3, TimeUnit.SECONDS);</span>
+<span class="nc bnc" id="L110" title="All 2 branches missed.">            if (!finished) {</span>
+<span class="nc" id="L111">                process.destroyForcibly();</span>
+<span class="nc" id="L112">                return Optional.empty();</span>
+            }
+<span class="nc" id="L114">            try (BufferedReader reader = new BufferedReader(new InputStreamReader(</span>
+<span class="nc" id="L115">                    process.getInputStream(), StandardCharsets.UTF_8</span>
+            ))) {
+<span class="nc" id="L117">                return reader.lines()</span>
+<span class="nc" id="L118">                        .map(String::trim)</span>
+<span class="nc bnc" id="L119" title="All 6 branches missed.">                        .filter(line -&gt; !line.isBlank() &amp;&amp; !line.startsWith(&quot;which:&quot;) &amp;&amp; !line.startsWith(&quot;no &quot;))</span>
+<span class="nc" id="L120">                        .findFirst()</span>
+<span class="nc" id="L121">                        .filter(path -&gt; {</span>
+<span class="nc" id="L122">                            Path p = Path.of(path);</span>
+<span class="nc bnc" id="L123" title="All 4 branches missed.">                            return Files.isRegularFile(p) &amp;&amp; Files.isExecutable(p);</span>
+                        });
+            }
+<span class="nc" id="L126">        } catch (Exception e) {</span>
+<span class="nc" id="L127">            return Optional.empty();</span>
+        }
+    }
+
+    private Optional&lt;String&gt; findExecutableViaPath(String command) {
+<span class="nc" id="L132">        String home = System.getProperty(&quot;user.home&quot;, &quot;&quot;);</span>
+<span class="nc" id="L133">        List&lt;String&gt; searchDirs = new ArrayList&lt;&gt;();</span>
+
+<span class="nc" id="L135">        String rawPath = System.getenv(&quot;PATH&quot;);</span>
+<span class="nc bnc" id="L136" title="All 4 branches missed.">        if (rawPath != null &amp;&amp; !rawPath.isBlank()) {</span>
+<span class="nc" id="L137">            searchDirs.addAll(List.of(rawPath.split(java.io.File.pathSeparator)));</span>
+        }
+
+<span class="nc" id="L140">        searchDirs.addAll(List.of(</span>
+                home + &quot;/.local/bin&quot;,
+                home + &quot;/.npm/bin&quot;,
+                home + &quot;/.yarn/bin&quot;,
+                home + &quot;/.cargo/bin&quot;,
+                home + &quot;/go/bin&quot;,
+                &quot;/usr/local/bin&quot;,
+                &quot;/usr/bin&quot;,
+                &quot;/opt/homebrew/bin&quot;,
+                &quot;/opt/homebrew/sbin&quot;
+        ));
+
+<span class="nc" id="L152">        boolean isWindows = System.getProperty(&quot;os.name&quot;, &quot;&quot;).toLowerCase(Locale.ROOT).contains(&quot;win&quot;);</span>
+<span class="nc" id="L153">        Set&lt;String&gt; candidateNames = new LinkedHashSet&lt;&gt;();</span>
+<span class="nc" id="L154">        candidateNames.add(command);</span>
+
+<span class="nc bnc" id="L156" title="All 2 branches missed.">        if (isWindows) {</span>
+<span class="nc" id="L157">            String pathExt = System.getenv(&quot;PATHEXT&quot;);</span>
+<span class="nc bnc" id="L158" title="All 4 branches missed.">            List&lt;String&gt; extensions = pathExt == null || pathExt.isBlank()</span>
+<span class="nc" id="L159">                    ? List.of(&quot;.exe&quot;, &quot;.cmd&quot;, &quot;.bat&quot;)</span>
+<span class="nc" id="L160">                    : List.of(pathExt.split(&quot;;&quot;));</span>
+<span class="nc bnc" id="L161" title="All 2 branches missed.">            for (String extension : extensions) {</span>
+<span class="nc" id="L162">                String normalizedExtension = extension.trim().toLowerCase(Locale.ROOT);</span>
+<span class="nc bnc" id="L163" title="All 2 branches missed.">                if (!normalizedExtension.isBlank()) {</span>
+<span class="nc" id="L164">                    candidateNames.add(command + normalizedExtension);</span>
+                }
+<span class="nc" id="L166">            }</span>
+        }
+
+<span class="nc bnc" id="L169" title="All 2 branches missed.">        for (String entry : searchDirs) {</span>
+<span class="nc bnc" id="L170" title="All 4 branches missed.">            if (entry == null || entry.isBlank()) continue;</span>
+<span class="nc" id="L171">            Path directory = Path.of(entry);</span>
+<span class="nc bnc" id="L172" title="All 2 branches missed.">            for (String candidateName : candidateNames) {</span>
+<span class="nc" id="L173">                Path candidate = directory.resolve(candidateName);</span>
+<span class="nc bnc" id="L174" title="All 4 branches missed.">                if (Files.isRegularFile(candidate) &amp;&amp; Files.isExecutable(candidate)) {</span>
+<span class="nc" id="L175">                    return Optional.of(candidate.toAbsolutePath().normalize().toString());</span>
+                }
+<span class="nc" id="L177">            }</span>
+<span class="nc" id="L178">        }</span>
+
+<span class="nc" id="L180">        return Optional.empty();</span>
+    }
+
+    private String resolveVersion(AgentDefinition definition, String executablePath) {
+<span class="nc bnc" id="L184" title="All 2 branches missed.">        for (String flag : definition.versionArgs()) {</span>
+<span class="nc" id="L185">            Optional&lt;String&gt; output = runVersionCommand(executablePath, flag);</span>
+<span class="nc bnc" id="L186" title="All 2 branches missed.">            if (output.isPresent()) {</span>
+<span class="nc" id="L187">                return sanitizeVersion(output.get());</span>
+            }
+<span class="nc" id="L189">        }</span>
+<span class="nc" id="L190">        return &quot;installed&quot;;</span>
+    }
+
+    private Optional&lt;String&gt; runVersionCommand(String executablePath, String arg) {
+        try {
+<span class="nc" id="L195">            Process process = new ProcessBuilder(executablePath, arg)</span>
+<span class="nc" id="L196">                    .redirectErrorStream(true)</span>
+<span class="nc" id="L197">                    .start();</span>
+
+<span class="nc" id="L199">            boolean finished = process.waitFor(2, TimeUnit.SECONDS);</span>
+<span class="nc bnc" id="L200" title="All 2 branches missed.">            if (!finished) {</span>
+<span class="nc" id="L201">                process.destroyForcibly();</span>
+<span class="nc" id="L202">                return Optional.empty();</span>
+            }
+
+<span class="nc" id="L205">            try (BufferedReader reader = new BufferedReader(new InputStreamReader(</span>
+<span class="nc" id="L206">                    process.getInputStream(),</span>
+                    StandardCharsets.UTF_8
+            ))) {
+<span class="nc" id="L209">                return reader.lines()</span>
+<span class="nc" id="L210">                        .map(String::trim)</span>
+<span class="nc bnc" id="L211" title="All 2 branches missed.">                        .filter(line -&gt; !line.isBlank())</span>
+<span class="nc" id="L212">                        .findFirst();</span>
+            }
+<span class="nc" id="L214">        } catch (Exception exception) {</span>
+<span class="nc" id="L215">            return Optional.empty();</span>
+        }
+    }
+
+    private String sanitizeVersion(String raw) {
+<span class="nc" id="L220">        String compact = raw.replace('\n', ' ').replace('\r', ' ').trim();</span>
+<span class="nc bnc" id="L221" title="All 2 branches missed.">        if (compact.length() &lt;= 30) {</span>
+<span class="nc" id="L222">            return compact;</span>
+        }
+<span class="nc" id="L224">        return compact.substring(0, 30).trim();</span>
+    }
+
+    private String deterministicId(String command, String executablePath) {
+<span class="nc" id="L228">        String seed = command + &quot;::&quot; + executablePath;</span>
+<span class="nc" id="L229">        return UUID.nameUUIDFromBytes(seed.getBytes(StandardCharsets.UTF_8)).toString();</span>
+    }
+
+    private String resolveAdapterType(String command) {
+<span class="nc bnc" id="L233" title="All 8 branches missed.">        return switch (command) {</span>
+<span class="nc" id="L234">            case &quot;claude&quot; -&gt; &quot;claude_local&quot;;</span>
+<span class="nc" id="L235">            case &quot;codex&quot; -&gt; &quot;codex_local&quot;;</span>
+<span class="nc" id="L236">            case &quot;gemini&quot; -&gt; &quot;gemini_local&quot;;</span>
+<span class="nc" id="L237">            case &quot;opencode&quot; -&gt; &quot;opencode_local&quot;;</span>
+<span class="nc" id="L238">            case &quot;aider&quot; -&gt; &quot;aider_local&quot;;</span>
+<span class="nc" id="L239">            case &quot;copilot&quot; -&gt; &quot;copilot_local&quot;;</span>
+<span class="nc" id="L240">            case &quot;antigravity&quot; -&gt; &quot;antigravity_local&quot;;</span>
+<span class="nc" id="L241">            default -&gt; &quot;custom_local&quot;;</span>
+        };
+    }
+
+    private String defaultModelFor(String adapterType) {
+<span class="nc bnc" id="L246" title="All 8 branches missed.">        return switch (adapterType) {</span>
+<span class="nc" id="L247">            case &quot;claude_local&quot; -&gt; &quot;claude-sonnet-4-6&quot;;</span>
+<span class="nc" id="L248">            case &quot;codex_local&quot; -&gt; &quot;gpt-5.3-codex&quot;;</span>
+<span class="nc" id="L249">            case &quot;gemini_local&quot; -&gt; &quot;gemini-2.5-pro&quot;;</span>
+<span class="nc" id="L250">            case &quot;opencode_local&quot; -&gt; &quot;opencode/big-pickle&quot;;</span>
+<span class="nc" id="L251">            case &quot;aider_local&quot; -&gt; &quot;sonnet&quot;;</span>
+<span class="nc" id="L252">            case &quot;copilot_local&quot; -&gt; &quot;gpt-4.1&quot;;</span>
+<span class="nc" id="L253">            case &quot;antigravity_local&quot; -&gt; &quot;local-instruct-8b&quot;;</span>
+<span class="nc" id="L254">            default -&gt; &quot;default&quot;;</span>
+        };
+    }
+
+<span class="nc" id="L258">    private record AgentDefinition(</span>
+            String name,
+            String command,
+            String vendor,
+            List&lt;String&gt; configDirectories,
+            List&lt;String&gt; versionArgs
+    ) {
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

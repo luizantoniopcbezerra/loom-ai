@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SettingsService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">loomai-backend</a> &gt; <a href="index.source.html" class="el_package">io.loomai.backend.settings</a> &gt; <span class="el_source">SettingsService.java</span></div><h1>SettingsService.java</h1><pre class="source lang-java linenums">package io.loomai.backend.settings;
+
+import io.loomai.backend.shared.error.ApiException;
+import io.loomai.backend.shared.error.ErrorCode;
+import io.loomai.backend.shared.time.UtcClock;
+import java.util.UUID;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+
+@Service
+public class SettingsService {
+
+    private final SettingsRepository settingsRepository;
+    private final UtcClock utcClock;
+
+<span class="fc" id="L16">    public SettingsService(SettingsRepository settingsRepository, UtcClock utcClock) {</span>
+<span class="fc" id="L17">        this.settingsRepository = settingsRepository;</span>
+<span class="fc" id="L18">        this.utcClock = utcClock;</span>
+<span class="fc" id="L19">    }</span>
+
+    public Settings getSettings() {
+<span class="fc" id="L22">        return settingsRepository.findSettings()</span>
+<span class="pc" id="L23">                .orElseThrow(() -&gt; new ApiException(</span>
+                        ErrorCode.NOT_FOUND,
+                        HttpStatus.NOT_FOUND,
+                        &quot;Recurso nao encontrado.&quot;
+                ));
+    }
+
+    public Settings saveSettings(SettingsRequest request) {
+<span class="fc" id="L31">        return settingsRepository.findSettings()</span>
+<span class="pc" id="L32">                .map(existing -&gt; updateSettings(existing, request))</span>
+<span class="fc" id="L33">                .orElseGet(() -&gt; createSettings(request));</span>
+    }
+
+    private Settings updateSettings(Settings existing, SettingsRequest request) {
+<span class="nc" id="L37">        Settings settings = new Settings(</span>
+<span class="nc" id="L38">                existing.id(),</span>
+<span class="nc" id="L39">                request.accentColor(),</span>
+<span class="nc" id="L40">                request.sidebarExpanded(),</span>
+<span class="nc" id="L41">                request.theme(),</span>
+<span class="nc" id="L42">                utcClock.now()</span>
+        );
+<span class="nc" id="L44">        return settingsRepository.save(settings);</span>
+    }
+
+    private Settings createSettings(SettingsRequest request) {
+<span class="fc" id="L48">        Settings settings = new Settings(</span>
+<span class="fc" id="L49">                UUID.randomUUID().toString(),</span>
+<span class="fc" id="L50">                request.accentColor(),</span>
+<span class="fc" id="L51">                request.sidebarExpanded(),</span>
+<span class="fc" id="L52">                request.theme(),</span>
+<span class="fc" id="L53">                utcClock.now()</span>
+        );
+<span class="fc" id="L55">        return settingsRepository.save(settings);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

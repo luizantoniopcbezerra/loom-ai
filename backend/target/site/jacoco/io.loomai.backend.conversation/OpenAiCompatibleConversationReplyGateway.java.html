@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OpenAiCompatibleConversationReplyGateway.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">loomai-backend</a> &gt; <a href="index.source.html" class="el_package">io.loomai.backend.conversation</a> &gt; <span class="el_source">OpenAiCompatibleConversationReplyGateway.java</span></div><h1>OpenAiCompatibleConversationReplyGateway.java</h1><pre class="source lang-java linenums">package io.loomai.backend.conversation;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.loomai.backend.shared.error.ApiException;
+import io.loomai.backend.shared.error.ErrorCode;
+import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
+import java.util.List;
+import java.util.Map;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Component;
+
+@Component
+public class OpenAiCompatibleConversationReplyGateway implements ConversationReplyGateway {
+
+<span class="nc" id="L22">    private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(60);</span>
+
+    private final ObjectMapper objectMapper;
+    private final HttpClient httpClient;
+    private final String chatUrl;
+    private final String apiKey;
+    private final String model;
+
+    public OpenAiCompatibleConversationReplyGateway(
+            ObjectMapper objectMapper,
+            @Value(&quot;${loom.llm.chat-url:}&quot;) String chatUrl,
+            @Value(&quot;${loom.llm.api-key:}&quot;) String apiKey,
+            @Value(&quot;${loom.llm.model:}&quot;) String model
+<span class="nc" id="L35">    ) {</span>
+<span class="nc" id="L36">        this.objectMapper = objectMapper;</span>
+<span class="nc" id="L37">        this.httpClient = HttpClient.newBuilder()</span>
+<span class="nc" id="L38">                .connectTimeout(Duration.ofSeconds(10))</span>
+<span class="nc" id="L39">                .build();</span>
+<span class="nc bnc" id="L40" title="All 2 branches missed.">        this.chatUrl = chatUrl == null ? &quot;&quot; : chatUrl.trim();</span>
+<span class="nc bnc" id="L41" title="All 2 branches missed.">        this.apiKey = apiKey == null ? &quot;&quot; : apiKey.trim();</span>
+<span class="nc bnc" id="L42" title="All 2 branches missed.">        this.model = model == null ? &quot;&quot; : model.trim();</span>
+<span class="nc" id="L43">    }</span>
+
+    @Override
+    public String generateReply(List&lt;Message&gt; history) {
+<span class="nc bnc" id="L47" title="All 6 branches missed.">        if (chatUrl.isBlank() || apiKey.isBlank() || model.isBlank()) {</span>
+<span class="nc" id="L48">            throw new ApiException(</span>
+                    ErrorCode.SERVICE_UNAVAILABLE,
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    &quot;Configure LOOM_LLM_CHAT_URL, LOOM_LLM_API_KEY e LOOM_LLM_MODEL para habilitar respostas reais.&quot;
+            );
+        }
+
+        try {
+<span class="nc" id="L56">            String payload = objectMapper.writeValueAsString(Map.of(</span>
+                    &quot;model&quot;, model,
+<span class="nc" id="L58">                    &quot;messages&quot;, history.stream()</span>
+<span class="nc" id="L59">                            .map(message -&gt; Map.of(</span>
+<span class="nc" id="L60">                                    &quot;role&quot;, normalizeRole(message.role()),</span>
+<span class="nc" id="L61">                                    &quot;content&quot;, message.content()</span>
+                            ))
+<span class="nc" id="L63">                            .toList()</span>
+            ));
+
+<span class="nc" id="L66">            HttpRequest request = HttpRequest.newBuilder(URI.create(chatUrl))</span>
+<span class="nc" id="L67">                    .timeout(REQUEST_TIMEOUT)</span>
+<span class="nc" id="L68">                    .header(&quot;Content-Type&quot;, &quot;application/json&quot;)</span>
+<span class="nc" id="L69">                    .header(&quot;Authorization&quot;, &quot;Bearer &quot; + apiKey)</span>
+<span class="nc" id="L70">                    .POST(HttpRequest.BodyPublishers.ofString(payload))</span>
+<span class="nc" id="L71">                    .build();</span>
+
+<span class="nc" id="L73">            HttpResponse&lt;String&gt; response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());</span>
+<span class="nc bnc" id="L74" title="All 4 branches missed.">            if (response.statusCode() &lt; 200 || response.statusCode() &gt;= 300) {</span>
+<span class="nc" id="L75">                throw new ApiException(</span>
+                        ErrorCode.SERVICE_UNAVAILABLE,
+                        HttpStatus.SERVICE_UNAVAILABLE,
+<span class="nc" id="L78">                        &quot;O provedor de IA respondeu com erro: &quot; + summarizeBody(response.body())</span>
+                );
+            }
+
+<span class="nc" id="L82">            JsonNode root = objectMapper.readTree(response.body());</span>
+<span class="nc" id="L83">            JsonNode contentNode = root.path(&quot;choices&quot;).path(0).path(&quot;message&quot;).path(&quot;content&quot;);</span>
+<span class="nc bnc" id="L84" title="All 4 branches missed.">            if (contentNode.isMissingNode() || contentNode.asText().isBlank()) {</span>
+<span class="nc" id="L85">                throw new ApiException(</span>
+                        ErrorCode.SERVICE_UNAVAILABLE,
+                        HttpStatus.SERVICE_UNAVAILABLE,
+                        &quot;O provedor de IA retornou uma resposta vazia.&quot;
+                );
+            }
+
+<span class="nc" id="L92">            return contentNode.asText();</span>
+<span class="nc" id="L93">        } catch (ApiException exception) {</span>
+<span class="nc" id="L94">            throw exception;</span>
+<span class="nc" id="L95">        } catch (IOException exception) {</span>
+<span class="nc" id="L96">            throw new ApiException(</span>
+                    ErrorCode.SERVICE_UNAVAILABLE,
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    &quot;Falha ao ler a resposta do provedor de IA.&quot;
+            );
+<span class="nc" id="L101">        } catch (InterruptedException exception) {</span>
+<span class="nc" id="L102">            Thread.currentThread().interrupt();</span>
+<span class="nc" id="L103">            throw new ApiException(</span>
+                    ErrorCode.SERVICE_UNAVAILABLE,
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    &quot;A requisicao para o provedor de IA foi interrompida.&quot;
+            );
+<span class="nc" id="L108">        } catch (Exception exception) {</span>
+<span class="nc" id="L109">            throw new ApiException(</span>
+                    ErrorCode.SERVICE_UNAVAILABLE,
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    &quot;O backend local nao conseguiu falar com o provedor de IA.&quot;
+            );
+        }
+    }
+
+    private String normalizeRole(String role) {
+<span class="nc bnc" id="L118" title="All 2 branches missed.">        return switch (role) {</span>
+<span class="nc" id="L119">            case &quot;assistant&quot;, &quot;system&quot; -&gt; role;</span>
+<span class="nc" id="L120">            default -&gt; &quot;user&quot;;</span>
+        };
+    }
+
+    private String summarizeBody(String body) {
+<span class="nc bnc" id="L125" title="All 4 branches missed.">        if (body == null || body.isBlank()) {</span>
+<span class="nc" id="L126">            return &quot;sem detalhes&quot;;</span>
+        }
+
+<span class="nc" id="L129">        String compact = body.replace('\n', ' ').replace('\r', ' ').trim();</span>
+<span class="nc bnc" id="L130" title="All 2 branches missed.">        if (compact.length() &lt;= 160) {</span>
+<span class="nc" id="L131">            return compact;</span>
+        }
+<span class="nc" id="L133">        return compact.substring(0, 160).trim() + &quot;...&quot;;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

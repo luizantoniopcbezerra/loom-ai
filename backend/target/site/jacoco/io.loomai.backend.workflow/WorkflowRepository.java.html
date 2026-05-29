@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>WorkflowRepository.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">loomai-backend</a> &gt; <a href="index.source.html" class="el_package">io.loomai.backend.workflow</a> &gt; <span class="el_source">WorkflowRepository.java</span></div><h1>WorkflowRepository.java</h1><pre class="source lang-java linenums">package io.loomai.backend.workflow;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.loomai.backend.shared.error.ApiException;
+import io.loomai.backend.shared.error.ErrorCode;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public class WorkflowRepository {
+
+    private final JdbcTemplate jdbcTemplate;
+    private final ObjectMapper objectMapper;
+
+<span class="fc" id="L23">    public WorkflowRepository(JdbcTemplate jdbcTemplate, ObjectMapper objectMapper) {</span>
+<span class="fc" id="L24">        this.jdbcTemplate = jdbcTemplate;</span>
+<span class="fc" id="L25">        this.objectMapper = objectMapper;</span>
+<span class="fc" id="L26">    }</span>
+
+    public List&lt;Workflow&gt; findAll() {
+<span class="fc" id="L29">        String sql = &quot;&quot;&quot;</span>
+                SELECT id, name, definition_json, created_at, updated_at
+                FROM workflows
+                ORDER BY updated_at DESC
+                &quot;&quot;&quot;;
+<span class="fc" id="L34">        return jdbcTemplate.query(sql, this::mapWorkflow);</span>
+    }
+
+    public Optional&lt;Workflow&gt; findById(String workflowId) {
+<span class="fc" id="L38">        String sql = &quot;&quot;&quot;</span>
+                SELECT id, name, definition_json, created_at, updated_at
+                FROM workflows
+                WHERE id = ?
+                &quot;&quot;&quot;;
+<span class="fc" id="L43">        return jdbcTemplate.query(sql, this::mapWorkflow, workflowId).stream().findFirst();</span>
+    }
+
+    public Workflow save(Workflow workflow) {
+<span class="fc" id="L47">        String sql = &quot;&quot;&quot;</span>
+                INSERT INTO workflows (id, name, definition_json, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+                &quot;&quot;&quot;;
+<span class="fc" id="L51">        jdbcTemplate.update(</span>
+                sql,
+<span class="fc" id="L53">                workflow.id(),</span>
+<span class="fc" id="L54">                workflow.name(),</span>
+<span class="fc" id="L55">                toJson(workflow.definition()),</span>
+<span class="fc" id="L56">                workflow.createdAt().toString(),</span>
+<span class="fc" id="L57">                workflow.updatedAt().toString()</span>
+        );
+<span class="fc" id="L59">        return workflow;</span>
+    }
+
+    public void deleteById(String workflowId) {
+<span class="nc" id="L63">        jdbcTemplate.update(&quot;DELETE FROM workflows WHERE id = ?&quot;, workflowId);</span>
+<span class="nc" id="L64">    }</span>
+
+    public Workflow update(Workflow workflow) {
+<span class="fc" id="L67">        String sql = &quot;&quot;&quot;</span>
+                UPDATE workflows
+                SET name = ?, definition_json = ?, updated_at = ?
+                WHERE id = ?
+                &quot;&quot;&quot;;
+<span class="fc" id="L72">        jdbcTemplate.update(</span>
+                sql,
+<span class="fc" id="L74">                workflow.name(),</span>
+<span class="fc" id="L75">                toJson(workflow.definition()),</span>
+<span class="fc" id="L76">                workflow.updatedAt().toString(),</span>
+<span class="fc" id="L77">                workflow.id()</span>
+        );
+<span class="fc" id="L79">        return workflow;</span>
+    }
+
+    private Workflow mapWorkflow(ResultSet resultSet, int rowNumber) throws SQLException {
+<span class="fc" id="L83">        return new Workflow(</span>
+<span class="fc" id="L84">                resultSet.getString(&quot;id&quot;),</span>
+<span class="fc" id="L85">                resultSet.getString(&quot;name&quot;),</span>
+<span class="fc" id="L86">                toJsonNode(resultSet.getString(&quot;definition_json&quot;)),</span>
+<span class="fc" id="L87">                Instant.parse(resultSet.getString(&quot;created_at&quot;)),</span>
+<span class="fc" id="L88">                Instant.parse(resultSet.getString(&quot;updated_at&quot;))</span>
+        );
+    }
+
+    private JsonNode toJsonNode(String definitionJson) {
+        try {
+<span class="fc" id="L94">            return objectMapper.readTree(definitionJson);</span>
+<span class="nc" id="L95">        } catch (JsonProcessingException exception) {</span>
+<span class="nc" id="L96">            throw new ApiException(</span>
+                    ErrorCode.INTERNAL_ERROR,
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    &quot;O backend local nao conseguiu concluir a operacao.&quot;
+            );
+        }
+    }
+
+    private String toJson(JsonNode definition) {
+        try {
+<span class="fc" id="L106">            return objectMapper.writeValueAsString(definition);</span>
+<span class="nc" id="L107">        } catch (JsonProcessingException exception) {</span>
+<span class="nc" id="L108">            throw new ApiException(</span>
+                    ErrorCode.INVALID_JSON,
+                    HttpStatus.UNPROCESSABLE_ENTITY,
+                    &quot;O corpo da requisicao nao contem JSON valido.&quot;
+            );
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

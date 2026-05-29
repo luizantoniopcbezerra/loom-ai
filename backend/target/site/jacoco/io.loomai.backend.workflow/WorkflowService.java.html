@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>WorkflowService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">loomai-backend</a> &gt; <a href="index.source.html" class="el_package">io.loomai.backend.workflow</a> &gt; <span class="el_source">WorkflowService.java</span></div><h1>WorkflowService.java</h1><pre class="source lang-java linenums">package io.loomai.backend.workflow;
+
+import io.loomai.backend.shared.error.ApiException;
+import io.loomai.backend.shared.error.ErrorCode;
+import io.loomai.backend.shared.time.UtcClock;
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+
+@Service
+public class WorkflowService {
+
+    private final WorkflowRepository workflowRepository;
+    private final UtcClock utcClock;
+
+<span class="fc" id="L18">    public WorkflowService(WorkflowRepository workflowRepository, UtcClock utcClock) {</span>
+<span class="fc" id="L19">        this.workflowRepository = workflowRepository;</span>
+<span class="fc" id="L20">        this.utcClock = utcClock;</span>
+<span class="fc" id="L21">    }</span>
+
+    public List&lt;Workflow&gt; getWorkflows() {
+<span class="fc" id="L24">        return workflowRepository.findAll();</span>
+    }
+
+    public Workflow createWorkflow(WorkflowRequest request) {
+<span class="fc" id="L28">        Instant now = utcClock.now();</span>
+<span class="fc" id="L29">        Workflow workflow = new Workflow(</span>
+<span class="fc" id="L30">                UUID.randomUUID().toString(),</span>
+<span class="fc" id="L31">                request.name().trim(),</span>
+<span class="fc" id="L32">                request.definition(),</span>
+                now,
+                now
+        );
+<span class="fc" id="L36">        return workflowRepository.save(workflow);</span>
+    }
+
+    public void deleteWorkflow(String workflowId) {
+<span class="nc" id="L40">        workflowRepository.findById(workflowId)</span>
+<span class="nc" id="L41">                .orElseThrow(() -&gt; new ApiException(</span>
+                        ErrorCode.NOT_FOUND,
+                        HttpStatus.NOT_FOUND,
+                        &quot;Recurso nao encontrado.&quot;
+                ));
+<span class="nc" id="L46">        workflowRepository.deleteById(workflowId);</span>
+<span class="nc" id="L47">    }</span>
+
+    public Workflow updateWorkflow(String workflowId, WorkflowRequest request) {
+<span class="fc" id="L50">        Workflow existing = workflowRepository.findById(workflowId)</span>
+<span class="pc" id="L51">                .orElseThrow(() -&gt; new ApiException(</span>
+                        ErrorCode.NOT_FOUND,
+                        HttpStatus.NOT_FOUND,
+                        &quot;Recurso nao encontrado.&quot;
+                ));
+
+<span class="fc" id="L57">        Workflow workflow = new Workflow(</span>
+<span class="fc" id="L58">                existing.id(),</span>
+<span class="fc" id="L59">                request.name().trim(),</span>
+<span class="fc" id="L60">                request.definition(),</span>
+<span class="fc" id="L61">                existing.createdAt(),</span>
+<span class="fc" id="L62">                utcClock.now()</span>
+        );
+<span class="fc" id="L64">        return workflowRepository.update(workflow);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

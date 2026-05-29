@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ConversationController.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">loomai-backend</a> &gt; <a href="index.source.html" class="el_package">io.loomai.backend.conversation</a> &gt; <span class="el_source">ConversationController.java</span></div><h1>ConversationController.java</h1><pre class="source lang-java linenums">package io.loomai.backend.conversation;
+
+import jakarta.validation.Valid;
+import java.util.List;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping(&quot;/api/conversations&quot;)
+public class ConversationController {
+
+    private final ConversationService conversationService;
+
+<span class="fc" id="L21">    public ConversationController(ConversationService conversationService) {</span>
+<span class="fc" id="L22">        this.conversationService = conversationService;</span>
+<span class="fc" id="L23">    }</span>
+
+    @GetMapping
+    public List&lt;Conversation&gt; getConversations() {
+<span class="fc" id="L27">        return conversationService.getConversations();</span>
+    }
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public Conversation createConversation(@Valid @RequestBody ConversationRequest request) {
+<span class="fc" id="L33">        return conversationService.createConversation(request);</span>
+    }
+
+    @GetMapping(&quot;/{conversationId}/messages&quot;)
+    public List&lt;Message&gt; getMessages(@PathVariable String conversationId) {
+<span class="fc" id="L38">        return conversationService.getMessages(conversationId);</span>
+    }
+
+    @PostMapping(&quot;/{conversationId}/messages&quot;)
+    @ResponseStatus(HttpStatus.CREATED)
+    public Message createMessage(
+            @PathVariable String conversationId,
+            @Valid @RequestBody MessageRequest request
+    ) {
+<span class="fc" id="L47">        return conversationService.createMessage(conversationId, request);</span>
+    }
+
+    @PostMapping(&quot;/{conversationId}/reply&quot;)
+    @ResponseStatus(HttpStatus.CREATED)
+    public Message createAssistantReply(
+            @PathVariable String conversationId,
+            @RequestBody(required = false) ConversationReplyRequest request
+    ) {
+<span class="fc" id="L56">        return conversationService.createAssistantReply(</span>
+                conversationId,
+<span class="pc bpc" id="L58" title="1 of 2 branches missed.">                request == null ? new ConversationReplyRequest(null, null, null) : request</span>
+        );
+    }
+
+    @DeleteMapping(&quot;/{conversationId}&quot;)
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteConversation(@PathVariable String conversationId) {
+<span class="nc" id="L65">        conversationService.deleteConversation(conversationId);</span>
+<span class="nc" id="L66">    }</span>
+
+    @PostMapping(&quot;/{conversationId}/reply/cancel&quot;)
+    public CancelReplyResponse cancelAssistantReply(@PathVariable String conversationId) {
+<span class="nc" id="L70">        return new CancelReplyResponse(conversationService.cancelAssistantReply(conversationId));</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

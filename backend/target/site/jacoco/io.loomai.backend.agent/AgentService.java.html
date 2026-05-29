@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AgentService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">loomai-backend</a> &gt; <a href="index.source.html" class="el_package">io.loomai.backend.agent</a> &gt; <span class="el_source">AgentService.java</span></div><h1>AgentService.java</h1><pre class="source lang-java linenums">package io.loomai.backend.agent;
+
+import io.loomai.backend.shared.error.ApiException;
+import io.loomai.backend.shared.error.ErrorCode;
+import io.loomai.backend.shared.time.UtcClock;
+import java.time.Instant;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+
+@Service
+public class AgentService {
+
+<span class="fc" id="L19">    private static final Map&lt;String, List&lt;String&gt;&gt; ADAPTER_MODELS = Map.of(</span>
+<span class="fc" id="L20">            &quot;claude_local&quot;, List.of(</span>
+                    &quot;claude-opus-4-7&quot;,
+                    &quot;claude-opus-4-6&quot;,
+                    &quot;claude-sonnet-4-6&quot;,
+                    &quot;claude-haiku-4-6&quot;,
+                    &quot;claude-sonnet-4-5-20250929&quot;,
+                    &quot;claude-haiku-4-5-20251001&quot;
+            ),
+<span class="fc" id="L28">            &quot;codex_local&quot;, List.of(</span>
+                    &quot;gpt-5.4&quot;,
+                    &quot;gpt-5.3-codex&quot;,
+                    &quot;gpt-5.3-codex-spark&quot;,
+                    &quot;gpt-5&quot;,
+                    &quot;o3&quot;,
+                    &quot;o4-mini&quot;,
+                    &quot;gpt-5-mini&quot;,
+                    &quot;gpt-5-nano&quot;,
+                    &quot;o3-mini&quot;,
+                    &quot;codex-mini-latest&quot;
+            ),
+<span class="fc" id="L40">            &quot;gemini_local&quot;, List.of(</span>
+                    &quot;gemini-3.1-pro&quot;,
+                    &quot;gemini-3-flash&quot;,
+                    &quot;gemini-2.5-pro&quot;,
+                    &quot;gemini-2.5-flash&quot;,
+                    &quot;gemini-2.5-flash-lite&quot;
+            ),
+<span class="fc" id="L47">            &quot;opencode_local&quot;, List.of(</span>
+                    &quot;opencode/big-pickle&quot;,
+                    &quot;opencode/deepseek-v4-flash-free&quot;,
+                    &quot;opencode/nemotron-3-super-free&quot;,
+                    &quot;anthropic/claude-sonnet-4-6&quot;,
+                    &quot;anthropic/claude-sonnet-4-5&quot;,
+                    &quot;anthropic/claude-opus-4&quot;,
+                    &quot;openai/gpt-4.1&quot;,
+                    &quot;google/gemini-2.5-pro&quot;,
+                    &quot;qwen/qwen3-coder&quot;
+            ),
+<span class="fc" id="L58">            &quot;aider_local&quot;, List.of(&quot;sonnet&quot;, &quot;o3-mini&quot;, &quot;r1&quot;, &quot;deepseek/deepseek-chat&quot;, &quot;gpt-4o&quot;),</span>
+<span class="fc" id="L59">            &quot;copilot_local&quot;, List.of(&quot;claude-sonnet-4.6&quot;, &quot;gpt-5.4&quot;, &quot;gpt-5.3-codex&quot;, &quot;gpt-4.1&quot;),</span>
+<span class="fc" id="L60">            &quot;antigravity_local&quot;, List.of(&quot;local-instruct-8b&quot;, &quot;qwen2.5-coder-14b&quot;),</span>
+<span class="fc" id="L61">            &quot;custom_local&quot;, List.of(&quot;default&quot;)</span>
+    );
+
+    private final AgentRepository agentRepository;
+    private final LocalAgentScanner localAgentScanner;
+    private final UtcClock utcClock;
+
+<span class="fc" id="L68">    public AgentService(AgentRepository agentRepository, LocalAgentScanner localAgentScanner, UtcClock utcClock) {</span>
+<span class="fc" id="L69">        this.agentRepository = agentRepository;</span>
+<span class="fc" id="L70">        this.localAgentScanner = localAgentScanner;</span>
+<span class="fc" id="L71">        this.utcClock = utcClock;</span>
+<span class="fc" id="L72">    }</span>
+
+    public List&lt;Agent&gt; getAgents() {
+<span class="fc" id="L75">        return agentRepository.findAll();</span>
+    }
+
+    public List&lt;Agent&gt; scanAgents() {
+<span class="fc" id="L79">        List&lt;Agent&gt; detected = localAgentScanner.scanInstalledAgents();</span>
+<span class="fc" id="L80">        reconcileScannedAgents(detected);</span>
+<span class="fc" id="L81">        agentRepository.saveAll(detected);</span>
+<span class="fc" id="L82">        removeMissingScannedAgents(detected);</span>
+<span class="fc" id="L83">        return agentRepository.findAll();</span>
+    }
+
+    public Agent createAgent(AgentRequest request) {
+<span class="fc" id="L87">        assertUniqueName(request.name().trim(), null);</span>
+<span class="fc" id="L88">        Instant now = utcClock.now();</span>
+<span class="fc" id="L89">        Agent agent = new Agent(</span>
+<span class="fc" id="L90">                UUID.randomUUID().toString(),</span>
+<span class="fc" id="L91">                request.name().trim(),</span>
+<span class="fc" id="L92">                request.adapterType(),</span>
+<span class="fc" id="L93">                normalizeAdapterConfig(request.adapterType(), request.adapterConfig()),</span>
+<span class="fc" id="L94">                request.status(),</span>
+                now
+        );
+<span class="fc" id="L97">        return agentRepository.save(agent);</span>
+    }
+
+    public Agent saveAgent(String agentId, AgentRequest request) {
+<span class="pc bpc" id="L101" title="1 of 2 branches missed.">        if (!isUuid(agentId)) {</span>
+<span class="nc" id="L102">            throw notFound();</span>
+        }
+
+<span class="fc" id="L105">        Agent existing = agentRepository.findById(agentId)</span>
+<span class="fc" id="L106">                .orElseThrow(this::notFound);</span>
+
+<span class="fc" id="L108">        assertUniqueName(request.name().trim(), existing.id());</span>
+<span class="fc" id="L109">        Agent agent = new Agent(</span>
+<span class="fc" id="L110">                existing.id(),</span>
+<span class="fc" id="L111">                request.name().trim(),</span>
+<span class="fc" id="L112">                request.adapterType(),</span>
+<span class="fc" id="L113">                normalizeAdapterConfig(request.adapterType(), request.adapterConfig()),</span>
+<span class="fc" id="L114">                request.status(),</span>
+<span class="fc" id="L115">                utcClock.now()</span>
+        );
+<span class="fc" id="L117">        return agentRepository.save(agent);</span>
+    }
+
+    public List&lt;AdapterModel&gt; getAdapterModels(String adapterType) {
+<span class="fc" id="L121">        List&lt;String&gt; models = ADAPTER_MODELS.get(adapterType);</span>
+<span class="pc bpc" id="L122" title="1 of 2 branches missed.">        if (models == null) {</span>
+<span class="nc" id="L123">            throw new ApiException(</span>
+                    ErrorCode.NOT_FOUND,
+                    HttpStatus.NOT_FOUND,
+                    &quot;Adapter local nao encontrado.&quot;
+            );
+        }
+<span class="fc" id="L129">        return models.stream()</span>
+<span class="fc" id="L130">                .map(model -&gt; new AdapterModel(model, model))</span>
+<span class="fc" id="L131">                .toList();</span>
+    }
+
+    private Map&lt;String, Object&gt; normalizeAdapterConfig(String adapterType, Map&lt;String, Object&gt; rawConfig) {
+<span class="pc bpc" id="L135" title="1 of 2 branches missed.">        Map&lt;String, Object&gt; config = rawConfig == null ? Map.of() : rawConfig;</span>
+<span class="pc bpc" id="L136" title="1 of 2 branches missed.">        if (config.containsKey(&quot;model&quot;)) {</span>
+<span class="fc" id="L137">            return config;</span>
+        }
+
+<span class="nc" id="L140">        List&lt;String&gt; models = ADAPTER_MODELS.getOrDefault(adapterType, List.of(&quot;default&quot;));</span>
+<span class="nc" id="L141">        LinkedHashMap&lt;String, Object&gt; normalized = new LinkedHashMap&lt;&gt;(config);</span>
+<span class="nc" id="L142">        normalized.put(&quot;model&quot;, models.getFirst());</span>
+<span class="nc" id="L143">        return normalized;</span>
+    }
+
+    private void assertUniqueName(String name, String currentId) {
+<span class="fc" id="L147">        agentRepository.findByName(name)</span>
+<span class="pc bnc" id="L148" title="All 2 branches missed.">                .filter(agent -&gt; !agent.id().equals(currentId))</span>
+<span class="fc" id="L149">                .ifPresent(agent -&gt; {</span>
+<span class="nc" id="L150">                    throw new ApiException(</span>
+                            ErrorCode.INVALID_INPUT,
+                            HttpStatus.UNPROCESSABLE_ENTITY,
+                            &quot;Ja existe um agente com esse nome.&quot;
+                    );
+                });
+<span class="fc" id="L156">    }</span>
+
+    private ApiException notFound() {
+<span class="nc" id="L159">        return new ApiException(</span>
+                ErrorCode.NOT_FOUND,
+                HttpStatus.NOT_FOUND,
+                &quot;Recurso nao encontrado.&quot;
+        );
+    }
+
+    private boolean isUuid(String agentId) {
+        try {
+<span class="fc" id="L168">            UUID.fromString(agentId);</span>
+<span class="fc" id="L169">            return true;</span>
+<span class="nc" id="L170">        } catch (IllegalArgumentException exception) {</span>
+<span class="nc" id="L171">            return false;</span>
+        }
+    }
+
+    private void reconcileScannedAgents(List&lt;Agent&gt; detected) {
+<span class="fc" id="L176">        List&lt;Agent&gt; existingAgents = agentRepository.findAll();</span>
+
+<span class="fc bfc" id="L178" title="All 2 branches covered.">        for (Agent detectedAgent : detected) {</span>
+<span class="fc" id="L179">            existingAgents.stream()</span>
+<span class="fc" id="L180">                    .filter(this::isAutoDetected)</span>
+<span class="fc bfc" id="L181" title="All 2 branches covered.">                    .filter(existingAgent -&gt; !existingAgent.id().equals(detectedAgent.id()))</span>
+<span class="fc" id="L182">                    .filter(existingAgent -&gt; existingAgent.adapterType().equals(detectedAgent.adapterType()))</span>
+<span class="fc" id="L183">                    .filter(existingAgent -&gt; existingAgent.name().equalsIgnoreCase(detectedAgent.name()))</span>
+<span class="fc" id="L184">                    .findFirst()</span>
+<span class="fc" id="L185">                    .ifPresent(staleAgent -&gt; agentRepository.deleteAllByIds(List.of(staleAgent.id())));</span>
+<span class="fc" id="L186">        }</span>
+<span class="fc" id="L187">    }</span>
+
+    private void removeMissingScannedAgents(List&lt;Agent&gt; detected) {
+<span class="fc" id="L190">        Set&lt;String&gt; detectedIds = detected.stream()</span>
+<span class="fc" id="L191">                .map(Agent::id)</span>
+<span class="fc" id="L192">                .collect(java.util.stream.Collectors.toCollection(HashSet::new));</span>
+
+<span class="fc" id="L194">        List&lt;String&gt; staleIds = agentRepository.findAll().stream()</span>
+<span class="fc" id="L195">                .filter(this::isAutoDetected)</span>
+<span class="fc" id="L196">                .map(Agent::id)</span>
+<span class="pc bpc" id="L197" title="1 of 2 branches missed.">                .filter(existingId -&gt; !detectedIds.contains(existingId))</span>
+<span class="fc" id="L198">                .toList();</span>
+
+<span class="fc" id="L200">        agentRepository.deleteAllByIds(staleIds);</span>
+<span class="fc" id="L201">    }</span>
+
+    private boolean isAutoDetected(Agent agent) {
+<span class="fc" id="L204">        Map&lt;String, Object&gt; config = agent.adapterConfig();</span>
+<span class="pc bpc" id="L205" title="2 of 4 branches missed.">        if (config == null || config.isEmpty()) {</span>
+<span class="nc" id="L206">            return false;</span>
+        }
+<span class="pc bpc" id="L208" title="1 of 4 branches missed.">        return config.containsKey(&quot;binaryPath&quot;) || config.containsKey(&quot;detectedVersion&quot;);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>

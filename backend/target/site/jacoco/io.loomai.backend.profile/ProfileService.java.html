@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ProfileService.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">loomai-backend</a> &gt; <a href="index.source.html" class="el_package">io.loomai.backend.profile</a> &gt; <span class="el_source">ProfileService.java</span></div><h1>ProfileService.java</h1><pre class="source lang-java linenums">package io.loomai.backend.profile;
+
+import io.loomai.backend.shared.error.ApiException;
+import io.loomai.backend.shared.error.ErrorCode;
+import io.loomai.backend.shared.time.UtcClock;
+import java.time.Instant;
+import java.util.UUID;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+
+@Service
+public class ProfileService {
+
+    private final ProfileRepository profileRepository;
+    private final UtcClock utcClock;
+
+<span class="fc" id="L17">    public ProfileService(ProfileRepository profileRepository, UtcClock utcClock) {</span>
+<span class="fc" id="L18">        this.profileRepository = profileRepository;</span>
+<span class="fc" id="L19">        this.utcClock = utcClock;</span>
+<span class="fc" id="L20">    }</span>
+
+    public Profile getProfile() {
+<span class="fc" id="L23">        return profileRepository.findProfile()</span>
+<span class="fc" id="L24">                .orElseThrow(() -&gt; new ApiException(</span>
+                        ErrorCode.NOT_FOUND,
+                        HttpStatus.NOT_FOUND,
+                        &quot;Recurso nao encontrado.&quot;
+                ));
+    }
+
+    public Profile saveProfile(ProfileRequest request) {
+<span class="fc" id="L32">        Instant now = utcClock.now();</span>
+<span class="fc" id="L33">        return profileRepository.findProfile()</span>
+<span class="pc" id="L34">                .map(existing -&gt; updateProfile(existing, request, now))</span>
+<span class="fc" id="L35">                .orElseGet(() -&gt; createProfile(request, now));</span>
+    }
+
+    private Profile updateProfile(Profile existing, ProfileRequest request, Instant now) {
+<span class="nc" id="L39">        Profile profile = new Profile(</span>
+<span class="nc" id="L40">                existing.id(),</span>
+<span class="nc" id="L41">                request.username().trim(),</span>
+<span class="nc" id="L42">                request.color(),</span>
+<span class="nc" id="L43">                existing.createdAt(),</span>
+                now
+        );
+<span class="nc" id="L46">        return profileRepository.save(profile);</span>
+    }
+
+    private Profile createProfile(ProfileRequest request, Instant now) {
+<span class="fc" id="L50">        Profile profile = new Profile(</span>
+<span class="fc" id="L51">                UUID.randomUUID().toString(),</span>
+<span class="fc" id="L52">                request.username().trim(),</span>
+<span class="fc" id="L53">                request.color(),</span>
+                now,
+                now
+        );
+<span class="fc" id="L57">        return profileRepository.save(profile);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.12.202403310830</span></div></body></html>
