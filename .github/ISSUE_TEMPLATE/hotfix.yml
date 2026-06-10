@@ -1,13 +1,13 @@
 name: Hotfix
 description: Report a critical issue requiring immediate attention in production
-title: "hotfix: "
+title: "hotfix: <short description of the critical issue>"
 labels: ["hotfix", "critical", "triage"]
 body:
   - type: markdown
     attributes:
       value: |
         > **This template is for critical production issues that require an urgent fix.**
-        > For non-critical bugs, please use the Bug Fix template instead.
+        > For non-critical bugs, please use the [Bug Fix](?template=fix.yml) template instead.
 
   - type: dropdown
     id: severity
@@ -26,7 +26,14 @@ body:
     attributes:
       label: Issue Description
       description: A clear and concise description of the critical issue.
-      placeholder: Describe the critical issue...
+      value: |
+        **What is broken:**
+        [Describe the issue clearly. Be specific about what is failing and how it manifests.]
+
+        **When it started:**
+        [Approximate time / deploy / commit when the issue began — e.g. "After deploy at 14:30 UTC on 2026-06-10".]
+
+        <!-- Example: After the 14:30 UTC deploy, all users attempting to log in receive a 500 Internal Server Error. The authentication service is failing to connect to the session store. -->
     validations:
       required: true
 
@@ -35,9 +42,11 @@ body:
     attributes:
       label: Impact
       description: Who is affected and what is the business impact?
-      placeholder: |
-        - Affected users: [e.g. all users / admin users / users in region X]
-        - Impact: [e.g. unable to log in, data loss, payments failing]
+      value: |
+        - **Affected users:** [e.g. All users / Authenticated users / Admin users / Users in region X]
+        - **Affected functionality:** [e.g. Login, Conversation creation, Agent execution]
+        - **Estimated blast radius:** [e.g. ~100% of active sessions / ~20 users]
+        - **Business impact:** [e.g. Users cannot log in / Payments are failing / Data is being lost]
     validations:
       required: true
 
@@ -45,11 +54,13 @@ body:
     id: steps
     attributes:
       label: Steps to Reproduce
-      description: Steps to reproduce the issue.
-      placeholder: |
+      description: Minimum steps to reproduce the issue in production or staging.
+      value: |
         1. Go to '...'
-        2. Do '...'
-        3. See error
+        2. Perform '...'
+        3. Observe '...'
+
+        **Reproducibility:** [ ] 100%  [ ] Intermittent (~__% of the time)
     validations:
       required: true
 
@@ -58,7 +69,14 @@ body:
     attributes:
       label: Temporary Workaround
       description: Is there any temporary workaround available while the fix is being developed?
-      placeholder: Describe any workaround, or write "None".
+      value: |
+        <!-- Choose one and describe: -->
+
+        **No workaround available.** Users are fully blocked until this is resolved.
+
+        <!-- OR -->
+
+        <!-- **Workaround:** [Describe the temporary mitigation steps, e.g. "Users can clear cookies and log in again" or "Roll back to commit abc1234".] -->
     validations:
       required: true
 
@@ -66,14 +84,27 @@ body:
     id: logs
     attributes:
       label: Logs / Stack Trace
-      description: Paste any relevant logs or error output.
+      description: Paste relevant error logs, stack traces, or monitoring alerts.
       render: shell
+      value: |
+        # Paste logs here. Remove any sensitive data (tokens, passwords, personal info) before submitting.
 
   - type: textarea
     id: proposed-fix
     attributes:
       label: Proposed Fix (optional)
-      description: If you have an idea of what the fix should be, describe it here.
+      description: If you already have a root cause hypothesis or know what needs to change, describe it here.
+      value: |
+        **Root cause hypothesis:**
+        [e.g. The Redis connection pool is exhausted due to missing connection release in the session middleware.]
+
+        **Proposed change:**
+        [e.g. Add `finally` block in `SessionService.java` to ensure connections are always released.]
+
+        **Risk of fix:**
+        [ ] Low — isolated change with no side effects
+        [ ] Medium — touches shared code, needs targeted testing
+        [ ] High — broad change, requires full regression
 
   - type: checkboxes
     id: checklist

@@ -1,6 +1,6 @@
 name: Bug Fix
 description: Report a bug that needs to be fixed
-title: "fix: "
+title: "fix: <short description of the bug>"
 labels: ["bug", "triage"]
 body:
   - type: markdown
@@ -13,7 +13,14 @@ body:
     attributes:
       label: Bug Description
       description: A clear and concise description of what the bug is.
-      placeholder: Describe the bug...
+      value: |
+        **What happened:**
+        [Describe the bug clearly and concisely.]
+
+        **Where it happens:**
+        [Component / page / endpoint / feature affected — e.g. "Agent creation form", "POST /api/conversations".]
+
+        <!-- Example: When creating an agent with a name longer than 50 characters, the form submits successfully but the agent is silently truncated without any warning to the user. -->
     validations:
       required: true
 
@@ -21,11 +28,13 @@ body:
     id: steps
     attributes:
       label: Steps to Reproduce
-      description: Steps to reproduce the behavior.
-      placeholder: |
+      description: Minimum steps needed to reproduce the behavior.
+      value: |
         1. Go to '...'
-        2. Click on '...'
-        3. See error
+        2. Click / call / enter '...'
+        3. Observe '...'
+
+        **Reproducibility:** [ ] Always  [ ] Sometimes  [ ] Rarely
     validations:
       required: true
 
@@ -34,6 +43,10 @@ body:
     attributes:
       label: Expected Behavior
       description: What you expected to happen.
+      value: |
+        The application should [describe the correct behavior].
+
+        <!-- Example: The application should display a validation error stating the name cannot exceed 50 characters before allowing form submission. -->
     validations:
       required: true
 
@@ -42,6 +55,10 @@ body:
     attributes:
       label: Actual Behavior
       description: What actually happened.
+      value: |
+        Instead, the application [describe what actually happens].
+
+        <!-- Example: Instead, the application accepts the input silently and stores only the first 50 characters, with no feedback to the user. -->
     validations:
       required: true
 
@@ -50,10 +67,12 @@ body:
     attributes:
       label: Environment
       description: Relevant environment details.
-      placeholder: |
-        - OS: [e.g. Ubuntu 22.04]
+      value: |
+        - OS: [e.g. Ubuntu 22.04 / macOS 14 / Windows 11]
         - Java version: [e.g. 21]
-        - Browser: [e.g. Chrome 120]
+        - Node version: [e.g. 20.x]
+        - Browser: [e.g. Chrome 125 / Firefox 126 — if applicable]
+        - App version / commit: [e.g. v1.2.0 or commit hash]
     validations:
       required: false
 
@@ -63,12 +82,17 @@ body:
       label: Logs / Stack Trace
       description: Paste any relevant logs or error output.
       render: shell
+      value: |
+        # Paste logs here. Remove any sensitive data (tokens, passwords, personal info) before submitting.
 
   - type: textarea
     id: additional-context
     attributes:
       label: Additional Context
       description: Any other context, screenshots, or information about the problem.
+      value: |
+        <!-- Add screenshots, screen recordings, or links to related issues. -->
+        N/A
 
   - type: checkboxes
     id: checklist

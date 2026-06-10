@@ -1,6 +1,6 @@
 name: Feature Request
 description: Propose a new feature or enhancement
-title: "feat: "
+title: "feat: <short description of the feature>"
 labels: ["feature", "triage"]
 body:
   - type: markdown
@@ -13,7 +13,10 @@ body:
     attributes:
       label: Summary
       description: A clear and concise description of the feature.
-      placeholder: As a user, I want to...
+      value: |
+        As a **[type of user]**, I want to **[perform some action]** so that **[I achieve some goal]**.
+
+        <!-- Example: As an admin, I want to export conversation history as CSV so that I can analyze usage patterns offline. -->
     validations:
       required: true
 
@@ -22,7 +25,14 @@ body:
     attributes:
       label: Motivation
       description: Why is this feature needed? What problem does it solve?
-      placeholder: Currently, there is no way to...
+      value: |
+        **Problem:**
+        Currently, there is no way to [describe the gap or pain point].
+
+        **Impact:**
+        This affects [who is affected] when they try to [what they're trying to do].
+
+        <!-- Example: Currently, there is no way to filter agents by tag. This affects power users who manage many agents and need to quickly locate a specific one. -->
     validations:
       required: true
 
@@ -31,6 +41,21 @@ body:
     attributes:
       label: Proposed Solution
       description: Describe how you envision this feature working.
+      value: |
+        **High-level approach:**
+        [Describe the solution in plain language.]
+
+        **Expected behavior:**
+        1. The user [does action]
+        2. The system [responds with]
+        3. The user sees [result]
+
+        **UI / API changes (if any):**
+        - [ ] New endpoint: `GET /api/...`
+        - [ ] New UI component: ...
+        - [ ] Configuration option: ...
+
+        <!-- Remove items that don't apply. -->
     validations:
       required: true
 
@@ -39,12 +64,19 @@ body:
     attributes:
       label: Alternatives Considered
       description: Any alternative solutions or workarounds you've considered.
+      value: |
+        - **Option A:** [description] — rejected because [reason].
+        - **Option B:** [description] — rejected because [reason].
+        - **Current workaround:** [describe any existing workaround and why it's insufficient].
 
   - type: textarea
     id: additional-context
     attributes:
       label: Additional Context
-      description: Screenshots, mockups, or any other relevant context.
+      description: Screenshots, mockups, links to similar implementations, or any other relevant context.
+      value: |
+        <!-- Add screenshots, Figma links, or references to similar features in other tools. -->
+        N/A
 
   - type: checkboxes
     id: checklist
