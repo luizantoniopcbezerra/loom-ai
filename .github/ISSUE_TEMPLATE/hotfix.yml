@@ -1,0 +1,88 @@
+name: Hotfix
+description: Report a critical issue requiring immediate attention in production
+title: "hotfix: "
+labels: ["hotfix", "critical", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        > **This template is for critical production issues that require an urgent fix.**
+        > For non-critical bugs, please use the Bug Fix template instead.
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: How severe is this issue?
+      options:
+        - "P0 — Production is down"
+        - "P1 — Major feature broken, no workaround"
+        - "P2 — Major feature broken, workaround exists"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Issue Description
+      description: A clear and concise description of the critical issue.
+      placeholder: Describe the critical issue...
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: Who is affected and what is the business impact?
+      placeholder: |
+        - Affected users: [e.g. all users / admin users / users in region X]
+        - Impact: [e.g. unable to log in, data loss, payments failing]
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Steps to reproduce the issue.
+      placeholder: |
+        1. Go to '...'
+        2. Do '...'
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Temporary Workaround
+      description: Is there any temporary workaround available while the fix is being developed?
+      placeholder: Describe any workaround, or write "None".
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / Stack Trace
+      description: Paste any relevant logs or error output.
+      render: shell
+
+  - type: textarea
+    id: proposed-fix
+    attributes:
+      label: Proposed Fix (optional)
+      description: If you have an idea of what the fix should be, describe it here.
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: This is a production issue requiring immediate attention
+          required: true
+        - label: I have checked there is no existing open hotfix for this issue
+          required: true
+        - label: I have notified the team through the appropriate channel
+          required: false
